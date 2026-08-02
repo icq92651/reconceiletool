@@ -221,12 +221,26 @@
                             }
                         }
 
-                        // 3. Ctrip
-                        const ctripMatches = text.matchAll(/(1\d{14,15})\s*已接單/g);
-                        for (const match of ctripMatches) {
-                            let id = match[1];
-                            if (!orders.some(o => o.id === id)) {
-                                orders.push({ platform: 'Ctrip', id: id, name: 'Ctrip Guest', checkin: '2026年7月26日', inPms: false });
+                        // 3. Ctrip (依「已接單」切割區塊，從區塊中擷取客名與實際入住日期)
+                        const ctripLines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                        let ctripBlockStart = 0;
+                        for (let i = 0; i < ctripLines.length; i++) {
+                            if (/^1\d{14,15}$/.test(ctripLines[i]) && ctripLines[i+1] === '已接單') {
+                                let id = ctripLines[i];
+                                if (!orders.some(o => o.id === id)) {
+                                    const block = ctripLines.slice(ctripBlockStart, i);
+
+                                    let name = 'Ctrip Guest';
+                                    const nameLine = block.find(l => /^[A-Za-z][A-Za-z\s]*\/[A-Za-z][A-Za-z\s]*$/.test(l));
+                                    if (nameLine) name = nameLine;
+
+                                    let checkin = '未知日期';
+                                    const dateLine = block.find(l => /^\d{4}\s*年\s*\d+\s*月\s*\d+\s*日$/.test(l));
+                                    if (dateLine) checkin = dateLine;
+
+                                    orders.push({ platform: 'Ctrip', id: id, name: name, checkin: checkin, inPms: false });
+                                }
+                                ctripBlockStart = i + 2;
                             }
                         }
 
@@ -268,7 +282,7 @@
                         return;
                     }
 
-                    const rawPmsIds = pmsText.match(/\d{8,15}|ORD\d+/g) || [];
+                    const rawPmsIds = pmsText.match(/\d{8,16}|ORD\d+/g) || [];
                     const pmsIds = new Set(rawPmsIds.filter(id => !isEzDateRef(id)));
 
                     this.matchedCount = 0;
