@@ -50,7 +50,7 @@
         </div>
 
         <div class="lg:col-span-2 flex flex-col gap-6">
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
                     <div class="text-xs text-slate-500 font-medium">總解析訂單</div>
                     <div class="text-2xl font-bold text-slate-900 mt-1" x-text="allParsedOrders.length">0</div>
@@ -60,8 +60,12 @@
                     <div class="text-2xl font-bold text-emerald-600 mt-1" x-text="matchedCount">0</div>
                 </div>
                 <div class="bg-red-50 p-4 rounded-xl shadow-sm border border-red-200 text-center">
-                    <div class="text-xs text-red-600 font-medium">⚠️ PMS 漏單</div>
+                    <div class="text-xs text-red-600 font-medium">⚠️ OTA 漏單</div>
                     <div class="text-2xl font-bold text-red-600 mt-1" x-text="missingOrders.length">0</div>
+                </div>
+                <div class="bg-amber-50 p-4 rounded-xl shadow-sm border border-amber-200 text-center">
+                    <div class="text-xs text-amber-600 font-medium">🟠 PMS 多單</div>
+                    <div class="text-2xl font-bold text-amber-600 mt-1" x-text="extraPmsOrders.length">0</div>
                 </div>
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-center">
                     <div class="text-xs text-slate-500 font-medium">平台數統計</div>
@@ -97,6 +101,28 @@
                                     <span class="text-slate-600 ml-1" x-text="order.name"></span>
                                 </div>
                                 <span class="text-slate-400" x-text="order.checkin"></span>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                    <span>🟠 PMS 多單清單 (存在於 PMS 但 OTA 清單中找不到對應)</span>
+                </h3>
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 max-h-48 overflow-y-auto">
+                    <template x-if="extraPmsOrders.length === 0 && allParsedOrders.length > 0 && pmsInput.trim() !== ''">
+                        <p class="text-xs text-emerald-700 font-medium">沒有多出來的 PMS 單號，兩邊筆數一致。</p>
+                    </template>
+                    <template x-if="pmsInput.trim() === ''">
+                        <p class="text-xs text-slate-500">請先在左側貼上 PMS 單號並執行比對...</p>
+                    </template>
+                    <ul class="space-y-2">
+                        <template x-for="pid in extraPmsOrders" :key="pid">
+                            <li class="text-xs font-mono text-amber-700 flex justify-between items-center bg-white p-2 rounded border border-amber-100 shadow-sm">
+                                <span class="font-bold text-slate-900" x-text="pid"></span>
+                                <span class="text-slate-400">PMS 有此單號，但 OTA 解析結果中沒有</span>
                             </li>
                         </template>
                     </ul>
@@ -150,6 +176,7 @@
                 searchQuery: '',
                 allParsedOrders: [],
                 missingOrders: [],
+                extraPmsOrders: [],
                 matchedCount: 0,
                 platformStats: 0,
                 feedbackMsg: '',
@@ -296,8 +323,11 @@
                     
                     this.allParsedOrders = updatedOrders;
                     this.missingOrders = this.allParsedOrders.filter(o => !o.inPms);
-                    
-                    this.feedbackMsg = `✅ 比對完成！PMS 抓到 ${pmsIds.size} 筆獨立單號，成功對應 ${this.matchedCount} 筆，揪出 ${this.missingOrders.length} 筆漏單！`;
+
+                    const otaIdSet = new Set(this.allParsedOrders.map(o => o.id));
+                    this.extraPmsOrders = [...pmsIds].filter(id => !otaIdSet.has(id));
+
+                    this.feedbackMsg = `✅ 比對完成！PMS 抓到 ${pmsIds.size} 筆獨立單號，成功對應 ${this.matchedCount} 筆，揪出 ${this.missingOrders.length} 筆 OTA 漏單；另外有 ${this.extraPmsOrders.length} 筆 PMS 單號在 OTA 清單中找不到對應。`;
                 },
                 get filteredOrders() {
                     return this.allParsedOrders.filter(o => 
